@@ -1,14 +1,39 @@
+export type VendaStatus = 'aberta' | 'pendente' | 'entregue' | 'cancelada' | 'finalizada'
+
+export type FormaPagamento =
+  | 'dinheiro'
+  | 'pix'
+  | 'cartao_credito'
+  | 'cartao_debito'
+  | 'fiado'
+  | 'outro'
+
 export type Venda = {
   id: string
-  cliente_nome: string
-  produto_nome: string
-  quantidade: number
+  pessoa_id: string | null
+  data_venda: string
+  status: VendaStatus | string
+  forma_pagamento: FormaPagamento | string | null
   valor_total: number
+  valor_pago: number
+  valor_pendente: number
   despesa_total: number
   desconto_total: number
-  status_entrega: string
-  created_at: string
-  updated_at: string
+  observacao: string | null
+  criado_em: string
+}
+
+export type NovaVenda = {
+  pessoa_id?: string | null
+  data_venda?: string
+  status?: VendaStatus | string
+  forma_pagamento?: FormaPagamento | string | null
+  valor_total?: number
+  valor_pago?: number
+  valor_pendente?: number
+  despesa_total?: number
+  desconto_total?: number
+  observacao?: string | null
 }
 
 export type ResumoVendas = {
@@ -18,3 +43,5 @@ export type ResumoVendas = {
   estoqueBaixo: string
   entregasPendentes: number
 }
+
+export type VendaAtualizacao = Partial<NovaVenda>

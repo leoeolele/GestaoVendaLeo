@@ -109,3 +109,40 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid #a67c6b;
+  outline-offset: 2px;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 120ms ease,
+    filter 120ms ease,
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+button:active {
+  transform: scale(0.97);
+  filter: brightness(1.08);
+}
+
+button:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid #a67c6b;
+  outline-offset: 2px;
+}
