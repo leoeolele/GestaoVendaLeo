@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import { Login } from './pages/Login'
+import { Menu } from './pages/Menu'
 import './App.css'
 
 function App() {
@@ -39,16 +40,7 @@ function App() {
     return <Login onLoginSuccess={() => setLogado(true)} />
   }
 
-  return (
-    <main className="app-home">
-      <h1>Gestão de Vendas</h1>
-      <p>Login realizado com sucesso.</p>
-
-      <button type="button" onClick={sair}>
-        Sair
-      </button>
-    </main>
-  )
+  return <Menu onLogout={sair} />
 }
 
 export default App

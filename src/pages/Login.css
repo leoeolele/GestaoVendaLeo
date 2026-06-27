@@ -17,7 +17,7 @@
   width: 100%;
   height: 36px;
   padding: 0 10px;
-  border-bottom: 1px solid #d8c9bd;
+  border-bottom: 1px solid #4a2f24;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -27,6 +27,7 @@
 .logo {
   font-size: 16px;
   font-weight: 800;
+  color: #2e1a11;
 }
 
 .header-icon {
@@ -34,7 +35,7 @@
   height: 28px;
   border: 0;
   border-radius: 8px;
-  background: #efe6de;
+  background: #e9d4c2;
   color: #4a2f24;
   font-size: 14px;
 }
@@ -175,4 +176,103 @@
   line-height: 0.72;
   letter-spacing: -8px;
   user-select: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .login-page {
+    background:
+      linear-gradient(
+        rgba(35, 24, 18, 0.45),
+        rgba(35, 24, 18, 0.45)
+      ),
+      url('/images/madeira.jpg') center/cover no-repeat;
+    color: #f8f4ef;
+  }
+
+  .login-header {
+    border-bottom: 1px solid rgba(255, 250, 247, 0.16);
+  }
+
+  .logo {
+    color: #fffaf7;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  }
+
+  .header-icon {
+    background: rgba(255, 250, 247, 0.14);
+    color: #fffaf7;
+  }
+
+  .login-intro {
+    background: rgba(45, 30, 22, 0.78);
+    border: 1px solid rgba(255, 250, 247, 0.14);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+  }
+
+  .login-intro h1 {
+    color: #fffaf7;
+  }
+
+  .login-intro p {
+    color: #eadbd0;
+  }
+
+  .login-card {
+    background: rgba(43, 29, 22, 0.90);
+    border: 1px solid rgba(255, 250, 247, 0.14);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+  }
+
+  .field-label {
+    color: #eadbd0;
+  }
+
+  .input-wrapper {
+    background: rgba(255, 250, 247, 0.08);
+    border: 1px solid rgba(255, 250, 247, 0.24);
+  }
+
+  .input-icon {
+    color: #cbb8aa;
+  }
+
+  .input-wrapper input {
+    color: #fffaf7;
+  }
+
+  .input-wrapper input::placeholder {
+    color: #cbb8aa;
+  }
+
+  .show-password {
+    color: #cbb8aa;
+  }
+
+  .error-message {
+    color: #ffb4a8;
+  }
+
+  .login-button {
+    background: #d8a56f;
+    color: #2b1d16;
+  }
+
+  .login-button:disabled {
+    opacity: 0.72;
+  }
+
+  .login-footer {
+    background: rgba(45, 30, 22, 0.78);
+    border: 1px solid rgba(255, 250, 247, 0.14);
+    color: #eadbd0;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+  }
+
+  .login-footer p {
+    color: #eadbd0;
+  }
+
+  .wood-illustration {
+    color: rgba(255, 250, 247, 0.20);
+  }
 }
