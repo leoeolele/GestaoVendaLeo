@@ -199,7 +199,7 @@ function App() {
           onGoMenu={navegarProDashboard}
           onGoPessoas={navegarParaPessoas}
           onGoProdutos={navegarParaProdutos}
-          onNovaVenda={navegarParaNovaVenda}
+          onNovaVenda={() => navegarParaNovaVenda()}
           onOpenMenu={() => setDrawerOpen(true)}
           onRefreshData={atualizarDados}
           refreshToken={refreshToken}
