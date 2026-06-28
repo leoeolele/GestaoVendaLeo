@@ -1,355 +1,72 @@
-.menu-page {
-  min-height: 100vh;
-  background: #111219;
-  color: #2b1a14;
-}
-
-.menu-shell {
-  width: 100%;
-  max-width: 430px;
-  min-height: 100vh;
-  margin: 0 auto;
-  background: #fbf8f6;
-  position: relative;
-  overflow: hidden;
-}
-
-.top-bar {
-  height: 52px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 16px;
-  border-bottom: 1px solid #eee4df;
-  background: #fbf8f6;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.menu-button {
-  border: 0;
-  background: transparent;
-  font-size: 22px;
-  color: #3b241c;
-  cursor: pointer;
-}
-
-.app-title {
-  font-size: 16px;
-  flex: 1;
-  text-align: center;
-  color: #2b1a14;
-}
-
-.logout-button {
-  border: 0;
-  border-radius: 4px;
-  background: #5a5a5a;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 5px 8px;
-  cursor: pointer;
-}
-
-.menu-content {
-  padding: 18px 16px 92px;
-}
-
-.welcome-area {
-  margin-bottom: 18px;
-}
-
-.welcome-area h1 {
-  font-size: 20px;
-  margin: 0 0 6px;
-  color: #2b1a14;
-}
-
-.welcome-area p {
-  font-size: 13px;
-  margin: 0;
-  color: #6f5a50;
-}
-
-.new-sale-button {
-  width: 100%;
-  height: 44px;
-  border: 0;
-  border-radius: 6px;
-  background: #4a2c22;
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 700;
-  margin-bottom: 20px;
-  cursor: pointer;
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.dashboard-card {
-  min-height: 112px;
-  border: 1px solid #eadbd5;
-  border-radius: 8px;
-  background: #fffaf8;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.dashboard-card-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: #f2e6e1;
-  display: flex;
+.dashboard-sale-button {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  align-self: center;
-  font-size: 17px;
-  margin-bottom: 8px;
+  gap: 8px;
 }
 
-.dashboard-card span {
-  display: block;
-  font-size: 12px;
-  color: #5d4a42;
-}
-
-.dashboard-card strong {
-  display: block;
-  margin-top: 6px;
-  font-size: 18px;
-  color: #2b1a14;
-}
-
-.dashboard-card.danger {
-  background: #ffe1dd;
-  border-color: #ff8f86;
-}
-
-.dashboard-card.danger strong {
-  color: #9b1712;
-}
-
-.dashboard-card.urgent {
-  background: #e8ded9;
-}
-
-.menu-section {
-  margin-top: 22px;
-}
-
-.section-header {
-  display: flex;
+.dashboard-manager-button {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
+  justify-content: center;
+  gap: 8px;
 }
 
-.section-header h2 {
-  font-size: 14px;
-  margin: 0;
-  color: #2b1a14;
-}
-
-.section-header button {
-  border: 0;
-  background: transparent;
-  font-size: 12px;
-  text-decoration: underline;
-  color: #4a2c22;
-  cursor: pointer;
+.menu-metric-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #f3e6df;
+  color: #5d4037;
+  display: grid;
+  place-items: center;
+  margin-bottom: 10px;
 }
 
 .delivery-card {
-  width: 100%;
-  border: 1px solid #eadbd5;
-  border-radius: 8px;
-  background: #fffaf8;
-  padding: 12px;
-  margin-bottom: 8px;
+  padding: 0;
+}
+
+.delivery-card .list-card-top {
+  margin: 0;
+  padding: 14px;
+}
+
+.compact-stock-card strong {
+  display: block;
+  font-size: 15px;
+  color: #2d1d17;
+}
+
+.stock-inline {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  text-align: left;
-  cursor: pointer;
+  gap: 10px;
+  color: #5d4037;
 }
 
-.delivery-card strong {
-  font-size: 13px;
-  color: #2b1a14;
+.stock-inline div span {
+  display: block;
+  margin-top: 3px;
 }
 
-.delivery-card p {
-  margin: 3px 0 0;
-  font-size: 12px;
-  color: #6f5a50;
-}
-
-.delivery-card span {
-  border-radius: 999px;
-  background: #f1ded8;
-  color: #4a2c22;
-  padding: 5px 10px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.bottom-nav {
-  position: fixed;
-  left: 50%;
-  bottom: 0;
-  width: 100%;
-  max-width: 430px;
-  transform: translateX(-50%);
-  height: 64px;
-  background: #fbf8f6;
-  border-top: 1px solid #eadbd5;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  z-index: 20;
-}
-
-.bottom-nav-item {
-  border: 0;
-  background: transparent;
-  color: #5d4a42;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-}
-
-.bottom-nav-item span {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.bottom-nav-item strong {
-  font-size: 11px;
-}
-
-.bottom-nav-item.active {
-  background: #eadbd5;
-  color: #4a2c22;
-  border-radius: 999px;
-  margin: 8px 10px;
+@media (min-width: 900px) {
+  .dashboard-metric-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (prefers-color-scheme: dark) {
-  .menu-page {
-    background: #111219;
-    color: #f7eee9;
+  .menu-metric-icon {
+    background: #3a2821;
+    color: #f5ebe6;
   }
 
-  .menu-shell {
-    background: #17130f;
+  .compact-stock-card strong {
+    color: #f5ebe6;
   }
 
-  .top-bar {
-    background: #1f1712;
-    border-bottom-color: #34251d;
-  }
-
-  .app-title,
-  .welcome-area h1,
-  .section-header h2,
-  .delivery-card strong,
-  .dashboard-card strong {
-    color: #f7eee9;
-  }
-
-  .menu-button {
-    color: #f7eee9;
-  }
-
-  .logout-button {
-    background: #3b2a22;
-    color: #f7eee9;
-  }
-
-  .welcome-area p,
-  .dashboard-card span,
-  .delivery-card p {
-    color: #c4aaa0;
-  }
-
-  .new-sale-button {
-    background: #7a4a35;
-    color: #ffffff;
-  }
-
-  .dashboard-card {
-    background: #241a15;
-    border-color: #3a2a22;
-  }
-
-  .dashboard-card-icon {
-    background: #34251d;
-  }
-
-  .dashboard-card.danger {
-    background: #3a1815;
-    border-color: #8f3a32;
-  }
-
-  .dashboard-card.danger strong {
-    color: #ff9b91;
-  }
-
-  .dashboard-card.urgent {
-    background: #302722;
-    border-color: #4a3930;
-  }
-
-  .delivery-card {
-    background: #241a15;
-    border-color: #3a2a22;
-  }
-
-  .delivery-card span {
-    background: #3a2a22;
-    color: #f4d7ca;
-  }
-
-  .section-header button {
-    color: #d7b5a4;
-  }
-
-  .bottom-nav {
-    background: #1f1712;
-    border-top-color: #34251d;
-  }
-
-  .bottom-nav-item {
-    color: #c4aaa0;
-  }
-
-  .bottom-nav-item.active {
-    background: #3a2a22;
-    color: #ffffff;
-  }
-}
-
-.empty-message {
-  margin: 8px 0;
-  font-size: 13px;
-  color: #6f5a50;
-}
-
-@media (prefers-color-scheme: dark) {
-  .empty-message {
-    color: #c4aaa0;
+  .stock-inline {
+    color: #d6beb3;
   }
 }

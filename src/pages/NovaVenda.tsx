@@ -1,11 +1,25 @@
-import { supabase } from '../lib/supabase'
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import './NovaVenda.css'
-
+import { Minus, Plus, Trash2 } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { AppShell } from '../components/AppShell'
+import { formatCurrencyVisibility, toDatetimeLocalValue, toIsoFromDatetimeLocal } from '../lib/formatters'
+import { getSupabaseErrorMessage } from '../lib/supabaseErrors'
+import { usePrivacy } from '../contexts/usePrivacy'
 import type { Pessoa } from '../types/Pessoa'
 import type { Produto } from '../types/Produto'
-import type { VendaStatus } from '../types/venda'
+import type { VendaStatus } from '../types/Venda'
+import './NovaVenda.css'
+
+type NovaVendaProps = {
+  onGoMenu: () => void
+  onGoPessoas: () => void
+  onGoProdutos: () => void
+  onGoVendas: () => void
+  onOpenMenu: () => void
+  onVendaSalva: () => void
+  onRefreshData: () => void
+}
 
 type DespesaVenda = {
   descricao: string
@@ -13,590 +27,594 @@ type DespesaVenda = {
 }
 
 type VendaItemTela = {
+  controla_estoque: boolean
+  preco_unitario: number
   produto_id: string
   produto_nome: string
   quantidade: number
-  preco_unitario: number
   subtotal: number
+  unidade: string
 }
 
-async function buscarPessoasPorNome(nome: string): Promise<Pessoa[]> {
-  const termo = nome.trim()
-
-  if (!termo) {
-    return []
-  }
-
-  const { data, error } = await supabase
+async function buscarPessoas(nome: string) {
+  let query = supabase
     .from('pessoas')
     .select('id, tipo_id, nome, telefone, endereco, observacao, ativo, criado_em')
-    .ilike('nome', `%${termo}%`)
     .eq('ativo', true)
     .order('nome', { ascending: true })
     .limit(8)
+
+  if (nome.trim()) {
+    query = query.ilike('nome', `%${nome.trim()}%`)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     throw error
   }
 
-  return data ?? []
+  return (data ?? []) as Pessoa[]
 }
 
-async function buscarProdutosPorNome(nome: string): Promise<Produto[]> {
-  const termo = nome.trim()
-
-  if (!termo) {
-    return []
-  }
-
-  const { data, error } = await supabase
+async function buscarProdutos(nome: string) {
+  let query = supabase
     .from('produtos')
     .select('id, nome, descricao, preco, unidade, controla_estoque, estoque_atual, ativo, criado_em')
-    .ilike('nome', `%${termo}%`)
     .eq('ativo', true)
     .order('nome', { ascending: true })
-    .limit(8)
+    .limit(10)
+
+  if (nome.trim()) {
+    query = query.ilike('nome', `%${nome.trim()}%`)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     throw error
   }
 
-  return data ?? []
+  return (data ?? []) as Produto[]
 }
 
-async function buscarTipoClienteId(): Promise<string> {
+async function buscarTipoClienteId() {
   const { data, error } = await supabase
     .from('pessoas_tipos')
     .select('id')
-    .eq('nome', 'Cliente')
+    .ilike('nome', 'Cliente')
     .single()
 
   if (error) {
     throw error
   }
 
-  return data.id
+  return data.id as string
 }
 
-async function resolverPessoaPorNome(
-  pessoaNome: string,
-  pessoaSelecionadaId: string | null
-): Promise<string> {
+async function resolverPessoaId(clienteNome: string, pessoaSelecionadaId: string | null) {
   if (pessoaSelecionadaId) {
     return pessoaSelecionadaId
   }
 
-  const nome = pessoaNome.trim()
+  const nome = clienteNome.trim()
 
   if (!nome) {
     throw new Error('Informe o cliente.')
   }
 
-  const { data: pessoaExistente, error: erroBusca } = await supabase
+  const { data: pessoaExistente, error: pessoaError } = await supabase
     .from('pessoas')
     .select('id')
     .ilike('nome', nome)
     .maybeSingle()
 
-  if (erroBusca) {
-    throw erroBusca
+  if (pessoaError) {
+    throw pessoaError
   }
 
   if (pessoaExistente) {
-    return pessoaExistente.id
+    return pessoaExistente.id as string
   }
 
   const tipoClienteId = await buscarTipoClienteId()
-
-  const { data: novaPessoa, error: erroCadastro } = await supabase
+  const { data: pessoaNova, error: pessoaNovaError } = await supabase
     .from('pessoas')
     .insert({
-      tipo_id: tipoClienteId,
-      nome,
       ativo: true,
+      nome,
+      tipo_id: tipoClienteId,
     })
     .select('id')
     .single()
 
-  if (erroCadastro) {
-    throw erroCadastro
+  if (pessoaNovaError) {
+    throw pessoaNovaError
   }
 
-  return novaPessoa.id
+  return pessoaNova.id as string
+}
+
+async function registrarSaidasEstoque(vendaId: string, itens: VendaItemTela[]) {
+  for (const item of itens) {
+    if (!item.controla_estoque) {
+      continue
+    }
+
+    const { data: produtoAtual, error: produtoError } = await supabase
+      .from('produtos')
+      .select('estoque_atual')
+      .eq('id', item.produto_id)
+      .single()
+
+    if (produtoError) {
+      throw produtoError
+    }
+
+    const estoqueAtual = Number(produtoAtual.estoque_atual || 0)
+    const estoqueFinal = Math.max(0, estoqueAtual - item.quantidade)
+
+    const { error: updateError } = await supabase
+      .from('produtos')
+      .update({ estoque_atual: estoqueFinal })
+      .eq('id', item.produto_id)
+
+    if (updateError) {
+      throw updateError
+    }
+
+    const { error: movimentoError } = await supabase.from('movimentacoes_estoque').insert({
+      motivo: `Venda ${vendaId}`,
+      produto_id: item.produto_id,
+      quantidade: item.quantidade,
+      tipo: 'saida',
+      venda_id: vendaId,
+    })
+
+    if (movimentoError) {
+      throw movimentoError
+    }
+  }
 }
 
 async function criarVenda(params: {
-  pessoa_id: string
-  data_venda: string
-  status: VendaStatus | string
-  valor_total: number
-  valor_pago: number
-  valor_pendente: number
-  despesa_total: number
-  desconto_total: number
-  observacao: string | null
+  clienteNome: string
+  dataVenda: string
+  despesasTotal: number
   itens: VendaItemTela[]
+  pessoaSelecionadaId: string | null
+  status: VendaStatus
+  valorPago: number
+  valorPendente: number
+  valorTotal: number
 }) {
-  const { itens, ...venda } = params
+  const pessoaId = await resolverPessoaId(params.clienteNome, params.pessoaSelecionadaId)
 
-  const { data: vendaCriada, error: erroVenda } = await supabase
+  const { data: vendaData, error: vendaError } = await supabase
     .from('vendas')
-    .insert(venda)
+    .insert({
+      data_venda: params.dataVenda,
+      despesa_total: params.despesasTotal,
+      desconto_total: 0,
+      forma_pagamento: params.valorPago > 0 ? 'pix' : null,
+      observacao: null,
+      pessoa_id: pessoaId,
+      status: params.status,
+      valor_pago: params.valorPago,
+      valor_pendente: params.valorPendente,
+      valor_total: params.valorTotal,
+    })
     .select('id')
     .single()
 
-  if (erroVenda) {
-    throw erroVenda
+  if (vendaError) {
+    throw vendaError
   }
 
-  const vendaId = vendaCriada.id as string
+  const vendaId = vendaData.id as string
 
-  const itensParaInserir = itens.map((item) => ({
-    venda_id: vendaId,
-    produto_id: item.produto_id,
-    quantidade: item.quantidade,
-    preco_unitario: item.preco_unitario,
-    subtotal: item.subtotal,
-  }))
+  const { error: itensError } = await supabase.from('vendas_itens').insert(
+    params.itens.map((item) => ({
+      preco_unitario: item.preco_unitario,
+      produto_id: item.produto_id,
+      quantidade: item.quantidade,
+      subtotal: item.subtotal,
+      venda_id: vendaId,
+    })),
+  )
 
-  const { error: erroItens } = await supabase
-    .from('vendas_itens')
-    .insert(itensParaInserir)
-
-  if (erroItens) {
-    throw erroItens
+  if (itensError) {
+    throw itensError
   }
 
+  await registrarSaidasEstoque(vendaId, params.itens)
   return vendaId
 }
 
-type NovaVendaProps = {
-  onVoltar?: () => void
-  onVendaSalva?: () => void
-}
-
-function moeda(valor: number) {
-  return valor.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  })
-}
-
-function agoraParaDatetimeLocal() {
-  const agora = new Date()
-  agora.setMinutes(agora.getMinutes() - agora.getTimezoneOffset())
-  return agora.toISOString().slice(0, 16)
-}
-
-function formatarDataHoraParaBanco(valor: string) {
-  if (!valor) {
-    return new Date().toISOString()
-  }
-
-  return new Date(valor).toISOString()
-}
-
-export function NovaVenda({ onVoltar, onVendaSalva }: NovaVendaProps) {
+export function NovaVenda({
+  onGoMenu,
+  onGoPessoas,
+  onGoProdutos,
+  onGoVendas,
+  onOpenMenu,
+  onRefreshData,
+  onVendaSalva,
+}: NovaVendaProps) {
+  const { valuesHidden } = usePrivacy()
   const [clienteNome, setClienteNome] = useState('')
   const [clienteSelecionadoId, setClienteSelecionadoId] = useState<string | null>(null)
   const [clientesSugeridos, setClientesSugeridos] = useState<Pessoa[]>([])
-  const [mostrarSugestoesCliente, setMostrarSugestoesCliente] = useState(false)
+  const [mostrarClientes, setMostrarClientes] = useState(false)
 
   const [produtoBusca, setProdutoBusca] = useState('')
   const [produtosSugeridos, setProdutosSugeridos] = useState<Produto[]>([])
-  const [mostrarSugestoesProduto, setMostrarSugestoesProduto] = useState(false)
+  const [mostrarProdutos, setMostrarProdutos] = useState(false)
 
   const [itens, setItens] = useState<VendaItemTela[]>([])
   const [despesas, setDespesas] = useState<DespesaVenda[]>([])
-
-const [statusEntrega, setStatusEntrega] = useState<VendaStatus>('pendente')
-  const [dataEntrega, setDataEntrega] = useState(agoraParaDatetimeLocal())
+  const [statusEntrega, setStatusEntrega] = useState<VendaStatus>('pendente')
+  const [dataEntrega, setDataEntrega] = useState(toDatetimeLocalValue())
   const [valorPago, setValorPago] = useState('')
-  const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
 
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
       try {
-        if (!clienteNome.trim() || clienteSelecionadoId) {
-          setClientesSugeridos([])
+        if (!mostrarClientes) {
           return
         }
 
-        const clientes = await buscarPessoasPorNome(clienteNome)
-        setClientesSugeridos(clientes)
+        const resultado = await buscarPessoas(clienteNome)
+        setClientesSugeridos(resultado)
       } catch {
         setClientesSugeridos([])
       }
-    }, 250)
+    }, 220)
 
     return () => window.clearTimeout(timeout)
-  }, [clienteNome, clienteSelecionadoId])
+  }, [clienteNome, mostrarClientes])
 
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
       try {
-        if (!produtoBusca.trim()) {
-          setProdutosSugeridos([])
+        if (!mostrarProdutos) {
           return
         }
 
-        const produtos = await buscarProdutosPorNome(produtoBusca)
-        setProdutosSugeridos(produtos)
+        const resultado = await buscarProdutos(produtoBusca)
+        setProdutosSugeridos(resultado)
       } catch {
         setProdutosSugeridos([])
       }
-    }, 250)
+    }, 220)
 
     return () => window.clearTimeout(timeout)
-  }, [produtoBusca])
+  }, [mostrarProdutos, produtoBusca])
 
-  const subtotalProdutos = useMemo(() => {
-    return itens.reduce((total, item) => total + item.subtotal, 0)
-  }, [itens])
+  const subtotalProdutos = useMemo(
+    () => itens.reduce((total, item) => total + item.subtotal, 0),
+    [itens],
+  )
 
-  const totalDespesas = useMemo(() => {
-    return despesas.reduce((total, despesa) => total + despesa.valor, 0)
-  }, [despesas])
+  const totalDespesas = useMemo(
+    () => despesas.reduce((total, despesa) => total + despesa.valor, 0),
+    [despesas],
+  )
 
   const valorPagoNumero = Number(valorPago.replace(',', '.')) || 0
-
-  const valorProdutos = subtotalProdutos
-const descontoTotal = 0
-const valorTotalVenda = Math.max(valorProdutos - descontoTotal, 0)
-const valorPendente = Math.max(valorTotalVenda - valorPagoNumero, 0)
-const lucroEstimado = valorTotalVenda - totalDespesas
+  const valorTotal = subtotalProdutos
+  const valorPendente = Math.max(valorTotal - valorPagoNumero, 0)
 
   function selecionarCliente(cliente: Pessoa) {
     setClienteNome(cliente.nome)
     setClienteSelecionadoId(cliente.id)
-    setClientesSugeridos([])
-    setMostrarSugestoesCliente(false)
+    setMostrarClientes(false)
   }
 
   function selecionarProduto(produto: Produto) {
-  const preco = Number(produto.preco) || 0
+    const preco = Number(produto.preco || 0)
 
-  const novoItem: VendaItemTela = {
-    produto_id: produto.id,
-    produto_nome: produto.nome,
-    quantidade: 1,
-    preco_unitario: preco,
-    subtotal: preco,
+    setItens((current) => {
+      const index = current.findIndex((item) => item.produto_id === produto.id)
+
+      if (index >= 0) {
+        return current.map((item, itemIndex) => {
+          if (itemIndex !== index) {
+            return item
+          }
+
+          const quantidade = item.quantidade + 1
+
+          return {
+            ...item,
+            quantidade,
+            subtotal: quantidade * item.preco_unitario,
+          }
+        })
+      }
+
+      return [
+        ...current,
+        {
+          controla_estoque: Boolean(produto.controla_estoque),
+          preco_unitario: preco,
+          produto_id: produto.id,
+          produto_nome: produto.nome,
+          quantidade: 1,
+          subtotal: preco,
+          unidade: produto.unidade || 'un',
+        },
+      ]
+    })
+
+    setProdutoBusca('')
+    setMostrarProdutos(false)
   }
 
-  setItens((itensAtuais) => [...itensAtuais, novoItem])
-  setProdutoBusca('')
-  setProdutosSugeridos([])
-  setMostrarSugestoesProduto(false)
-}
-
-  function alterarQuantidadeItem(index: number, quantidade: number) {
-    const quantidadeSegura = Math.max(1, quantidade)
-
-    setItens((itensAtuais) =>
-      itensAtuais.map((item, itemIndex) => {
-        if (itemIndex !== index) {
-          return item
-        }
-
-        return {
-          ...item,
-          quantidade: quantidadeSegura,
-          subtotal: quantidadeSegura * item.preco_unitario,
-        }
-      })
+  function alterarQuantidade(index: number, novoValor: number) {
+    const quantidade = Math.max(1, novoValor)
+    setItens((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              quantidade,
+              subtotal: quantidade * item.preco_unitario,
+            }
+          : item,
+      ),
     )
   }
 
   function removerItem(index: number) {
-    setItens((itensAtuais) => itensAtuais.filter((_, itemIndex) => itemIndex !== index))
+    setItens((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
   function adicionarDespesa() {
-    setDespesas((despesasAtuais) => [
-      ...despesasAtuais,
-      {
-        descricao: '',
-        valor: 0,
-      },
-    ])
+    setDespesas((current) => [...current, { descricao: '', valor: 0 }])
   }
 
   function alterarDespesa(index: number, campo: keyof DespesaVenda, valor: string) {
-    setDespesas((despesasAtuais) =>
-      despesasAtuais.map((despesa, despesaIndex) => {
-        if (despesaIndex !== index) {
-          return despesa
-        }
-
-        if (campo === 'valor') {
-          return {
-            ...despesa,
-            valor: Number(valor.replace(',', '.')) || 0,
-          }
-        }
-
-        return {
-          ...despesa,
-          [campo]: valor,
-        }
-      })
+    setDespesas((current) =>
+      current.map((despesa, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...despesa,
+              [campo]: campo === 'valor' ? Number(valor.replace(',', '.')) || 0 : valor,
+            }
+          : despesa,
+      ),
     )
   }
 
   function removerDespesa(index: number) {
-    setDespesas((despesasAtuais) =>
-      despesasAtuais.filter((_, despesaIndex) => despesaIndex !== index)
-    )
+    setDespesas((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
   async function salvarVenda(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setErro(null)
+
+    if (!clienteNome.trim()) {
+      setErro('Informe ou selecione um cliente.')
+      return
+    }
+
+    if (itens.length === 0) {
+      setErro('Selecione pelo menos um produto existente.')
+      return
+    }
+
+    setSalvando(true)
 
     try {
-      setErro(null)
-
-      if (!clienteNome.trim()) {
-        setErro('Informe o cliente.')
-        return
-      }
-
-      if (itens.length === 0) {
-        setErro('Adicione pelo menos um produto.')
-        return
-      }
-
-      setSalvando(true)
-
-      const pessoaId = await resolverPessoaPorNome(clienteNome, clienteSelecionadoId)
-
       await criarVenda({
-  pessoa_id: pessoaId,
-  data_venda: formatarDataHoraParaBanco(dataEntrega),
-  status: statusEntrega,
-  valor_total: valorTotalVenda,
-  valor_pago: valorPagoNumero,
-  valor_pendente: valorPendente,
-  despesa_total: totalDespesas,
-  desconto_total: descontoTotal,
-  observacao: null,
-  itens,
-})
+        clienteNome,
+        dataVenda: toIsoFromDatetimeLocal(dataEntrega),
+        despesasTotal: totalDespesas,
+        itens,
+        pessoaSelecionadaId: clienteSelecionadoId,
+        status: statusEntrega,
+        valorPago: valorPagoNumero,
+        valorPendente,
+        valorTotal,
+      })
 
-      onVendaSalva?.()
+      onRefreshData()
+      onVendaSalva()
     } catch (error) {
-      const mensagem =
-        error instanceof Error ? error.message : 'Erro ao salvar a venda.'
-
-      setErro(mensagem)
+      setErro(getSupabaseErrorMessage(error, 'Erro ao salvar a venda.'))
     } finally {
       setSalvando(false)
     }
   }
 
   return (
-    <main className="nova-venda-page">
-      <form className="nova-venda-shell" onSubmit={salvarVenda}>
-        <header className="nova-venda-header">
-          <button
-            type="button"
-            className="voltar-button"
-            onClick={onVoltar}
-            aria-label="Voltar"
-          >
-            ←
-          </button>
-
-          <h1>Nova Venda</h1>
-
-          <div className="header-avatar" aria-hidden="true">
-            🪵
+    <AppShell
+      activeNav="vendas"
+      onGoMenu={onGoMenu}
+      onGoPessoas={onGoPessoas}
+      onGoProdutos={onGoProdutos}
+      onGoVendas={onGoVendas}
+      onOpenMenu={onOpenMenu}
+    >
+      <form className="page-stack" onSubmit={salvarVenda}>
+        <section className="page-hero">
+          <div>
+            <h1 className="page-title">Nova Venda</h1>
+            <p className="page-subtitle">Selecione produtos existentes e salve o cliente novo se ele ainda não estiver cadastrado.</p>
           </div>
-        </header>
+        </section>
 
-        <section className="form-section">
-          <div className="section-row">
+        <section className="section-card form-stack">
+          <div className="field-block">
             <label htmlFor="cliente">Cliente</label>
-            <span>Alternar Manual/Lista</span>
+            <div className="autocomplete-box">
+              <input
+                id="cliente"
+                className="text-field"
+                type="text"
+                placeholder="Buscar cliente ou digitar novo nome"
+                value={clienteNome}
+                autoComplete="off"
+                onFocus={() => setMostrarClientes(true)}
+                onChange={(event) => {
+                  setClienteNome(event.target.value)
+                  setClienteSelecionadoId(null)
+                  setMostrarClientes(true)
+                }}
+              />
+
+              {mostrarClientes && clientesSugeridos.length > 0 && (
+                <div className="suggestions-panel">
+                  {clientesSugeridos.map((cliente) => (
+                    <button key={cliente.id} type="button" onClick={() => selecionarCliente(cliente)}>
+                      <strong>{cliente.nome}</strong>
+                      <small>{cliente.telefone || 'Cadastro existente'}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="autocomplete-wrapper">
-            <input
-              id="cliente"
-              type="text"
-              value={clienteNome}
-              placeholder="Pesquisar ou selecionar cliente"
-              autoComplete="off"
-              onFocus={() => setMostrarSugestoesCliente(true)}
-              onChange={(event) => {
-                setClienteNome(event.target.value)
-                setClienteSelecionadoId(null)
-                setMostrarSugestoesCliente(true)
-              }}
-            />
-
-            {mostrarSugestoesCliente && clientesSugeridos.length > 0 && (
-              <div className="suggestions-box">
-                {clientesSugeridos.map((cliente) => (
-                  <button
-                    key={cliente.id}
-                    type="button"
-                    onClick={() => selecionarCliente(cliente)}
-                  >
-                    {cliente.nome}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="form-section">
-          <div className="section-row">
+          <div className="field-block">
             <label htmlFor="produto">Produtos</label>
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => setMostrarSugestoesProduto(true)}
-            >
-              ⊕ Adicionar Produto
-            </button>
+            <div className="autocomplete-box">
+              <input
+                id="produto"
+                className="text-field"
+                type="text"
+                placeholder="Pesquisar produto cadastrado"
+                value={produtoBusca}
+                autoComplete="off"
+                onFocus={() => setMostrarProdutos(true)}
+                onChange={(event) => {
+                  setProdutoBusca(event.target.value)
+                  setMostrarProdutos(true)
+                }}
+              />
+
+              {mostrarProdutos && produtosSugeridos.length > 0 && (
+                <div className="suggestions-panel">
+                  {produtosSugeridos.map((produto) => (
+                    <button key={produto.id} type="button" onClick={() => selecionarProduto(produto)}>
+                      <strong>{produto.nome}</strong>
+                      <small>
+                        {formatCurrencyVisibility(Number(produto.preco) || 0, valuesHidden)} / {produto.unidade}
+                      </small>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="autocomplete-wrapper">
+          {itens.length === 0 ? (
+            <div className="empty-state">Escolha um produto existente para montar a venda.</div>
+          ) : (
+            <div className="list-stack">
+              {itens.map((item, index) => (
+                <article key={item.produto_id} className="list-card sale-item-card">
+                  <div className="list-card-top">
+                    <div>
+                      <p className="list-card-title">{item.produto_nome}</p>
+                      <p className="list-card-subtitle">
+                        {formatCurrencyVisibility(item.preco_unitario, valuesHidden)} / {item.unidade}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="icon-button sale-trash-button"
+                      onClick={() => removerItem(index)}
+                      aria-label="Remover item"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+
+                  <div className="sale-item-bottom">
+                    <div className="quantity-stepper">
+                      <button type="button" onClick={() => alterarQuantidade(index, item.quantidade - 1)}>
+                        <Minus size={16} />
+                      </button>
+                      <span>{item.quantidade}</span>
+                      <button type="button" onClick={() => alterarQuantidade(index, item.quantidade + 1)}>
+                        <Plus size={16} />
+                      </button>
+                    </div>
+
+                    <div className="sale-item-subtotal">
+                      <span>Subtotal</span>
+                      <strong>{formatCurrencyVisibility(item.subtotal, valuesHidden)}</strong>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="section-card form-stack">
+          <div className="field-block">
+            <label>Status da entrega</label>
+            <div className="inline-actions">
+              <button
+                type="button"
+                className={statusEntrega === 'entregue' ? 'secondary-button status-pill active' : 'secondary-button status-pill'}
+                onClick={() => setStatusEntrega('entregue')}
+              >
+                Entregue
+              </button>
+              <button
+                type="button"
+                className={statusEntrega === 'pendente' ? 'secondary-button status-pill active' : 'secondary-button status-pill'}
+                onClick={() => setStatusEntrega('pendente')}
+              >
+                Pendente
+              </button>
+            </div>
+          </div>
+
+          <div className="field-block">
+            <label htmlFor="data-entrega">Data da venda</label>
             <input
-              id="produto"
-              type="text"
-              value={produtoBusca}
-              placeholder="Pesquisar produto"
-              autoComplete="off"
-              onFocus={() => setMostrarSugestoesProduto(true)}
-              onChange={(event) => {
-                setProdutoBusca(event.target.value)
-                setMostrarSugestoesProduto(true)
-              }}
+              id="data-entrega"
+              className="text-field"
+              type="datetime-local"
+              value={dataEntrega}
+              onChange={(event) => setDataEntrega(event.target.value)}
             />
-
-            {mostrarSugestoesProduto && produtosSugeridos.length > 0 && (
-              <div className="suggestions-box">
-                {produtosSugeridos.map((produto) => (
-                  <button
-                    key={produto.id}
-                    type="button"
-                    onClick={() => selecionarProduto(produto)}
-                  >
-                    <strong>{produto.nome}</strong>
-                    <small>{moeda(Number(produto.preco) || 0)}</small>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="itens-list">
-            {itens.map((item, index) => (
-              <article className="item-card" key={`${item.produto_id}-${index}`}>
-                <div className="item-card-top">
-                  <div>
-                    <strong>{item.produto_nome}</strong>
-                    <span>
-                      {moeda(item.preco_unitario)} / un
-                    </span>
-                  </div>
-
-                  <button type="button" onClick={() => removerItem(index)}>
-                    🗑
-                  </button>
-                </div>
-
-                <div className="item-card-bottom">
-                  <div className="quantity-control">
-                    <button
-                      type="button"
-                      onClick={() => alterarQuantidadeItem(index, item.quantidade - 1)}
-                    >
-                      −
-                    </button>
-
-                    <span>{item.quantidade}</span>
-
-                    <button
-                      type="button"
-                      onClick={() => alterarQuantidadeItem(index, item.quantidade + 1)}
-                    >
-                      +
-                    </button>
-                  </div>
-
-                  <div className="subtotal-box">
-                    <span>Subtotal</span>
-                    <strong>{moeda(item.subtotal)}</strong>
-                  </div>
-                </div>
-              </article>
-            ))}
           </div>
         </section>
 
-        <section className="form-section">
-          <label>Status da Entrega</label>
-
-          <div className="status-grid">
-            <button
-              type="button"
-              className={statusEntrega === 'entregue' ? 'status-button active' : 'status-button'}
-              onClick={() => setStatusEntrega('entregue')}
-            >
-              🚚 Entregue
-            </button>
-
-            <button
-              type="button"
-              className={statusEntrega === 'pendente' ? 'status-button active' : 'status-button'}
-              onClick={() => setStatusEntrega('pendente')}
-            >
-              ⏱ Pendente
-            </button>
-          </div>
-        </section>
-
-        <section className="form-section">
-          <label htmlFor="dataEntrega">Data e Hora da Entrega</label>
-
-          <input
-            id="dataEntrega"
-            type="datetime-local"
-            value={dataEntrega}
-            onChange={(event) => setDataEntrega(event.target.value)}
-          />
-        </section>
-
-        <section className="form-section">
-          <div className="section-row">
-            <label>Despesas da Venda</label>
-            <button type="button" className="link-button" onClick={adicionarDespesa}>
-              ⊕ Adicionar Despesa
+        <section className="section-card form-stack">
+          <div className="section-title-row">
+            <h2>Despesas da venda</h2>
+            <button type="button" className="section-link" onClick={adicionarDespesa}>
+              Adicionar despesa
             </button>
           </div>
 
           {despesas.length === 0 && (
-            <button type="button" className="empty-expense-button" onClick={adicionarDespesa}>
+            <button type="button" className="ghost-button full-width expense-empty-button" onClick={adicionarDespesa}>
               Ex: Gasolina
-              <strong>{moeda(0)}</strong>
             </button>
           )}
 
           {despesas.map((despesa, index) => (
-            <div className="expense-row" key={index}>
+            <div key={index} className="expense-row">
               <input
+                className="text-field"
                 type="text"
                 value={despesa.descricao}
-                placeholder="Ex: Gasolina"
+                placeholder="Descrição"
                 onChange={(event) => alterarDespesa(index, 'descricao', event.target.value)}
               />
-
               <input
+                className="text-field"
                 type="number"
                 min="0"
                 step="0.01"
@@ -604,67 +622,59 @@ const lucroEstimado = valorTotalVenda - totalDespesas
                 placeholder="0,00"
                 onChange={(event) => alterarDespesa(index, 'valor', event.target.value)}
               />
-
-              <button type="button" onClick={() => removerDespesa(index)}>
-                ×
+              <button type="button" className="secondary-button expense-remove-button" onClick={() => removerDespesa(index)}>
+                Remover
               </button>
             </div>
           ))}
         </section>
 
-        <section className="summary-card">
-          <div>
-            <span>Subtotal Produtos</span>
-            <strong>{moeda(subtotalProdutos)}</strong>
+        <section className="summary-sale-card">
+          <div className="split-values">
+            <span>Subtotal produtos</span>
+            <strong>{formatCurrencyVisibility(subtotalProdutos, valuesHidden)}</strong>
           </div>
 
-          <div>
-            <span>Total Despesas</span>
-            <strong>{moeda(totalDespesas)}</strong>
+          <div className="split-values">
+            <span>Total despesas</span>
+            <strong>{formatCurrencyVisibility(totalDespesas, valuesHidden)}</strong>
           </div>
 
-          <div className="summary-total">
-            <span>Total da Venda</span>
-                <strong>{moeda(valorTotalVenda)}</strong>
+          <div className="split-values summary-grand-total">
+            <span>Total geral</span>
+            <strong>{formatCurrencyVisibility(valorTotal, valuesHidden)}</strong>
           </div>
         </section>
 
-        <section className="form-section">
-          <div className="section-row">
-            <label htmlFor="valorPago">Valor Pago (R$)</label>
-            <span>TECLADO NUMÉRICO ATIVADO</span>
+        <section className="section-card form-stack">
+          <div className="field-block">
+            <label htmlFor="valor-pago">Valor pago</label>
+            <input
+              id="valor-pago"
+              className="text-field paid-value-field"
+              type="number"
+              min="0"
+              step="0.01"
+              value={valorPago}
+              onChange={(event) => setValorPago(event.target.value)}
+              placeholder="0,00"
+            />
           </div>
-
-          <input
-            id="valorPago"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="0.01"
-            value={valorPago}
-            placeholder="0,00"
-            className="valor-pago-input"
-            onChange={(event) => setValorPago(event.target.value)}
-          />
         </section>
 
-        <section className={valorPendente > 0 ? 'saldo-card pendente' : 'saldo-card quitado'}>
-  <span>{valorPendente > 0 ? '⚠ Saldo Pendente' : '✓ Venda Quitada'}</span>
-  <strong>{moeda(valorPendente)}</strong>
-</section>
+        <section className={valorPendente > 0 ? 'payment-alert pending' : 'payment-alert done'}>
+          <span>{valorPendente > 0 ? 'Saldo pendente' : 'Venda quitada'}</span>
+          <strong>{formatCurrencyVisibility(valorPendente, valuesHidden)}</strong>
+        </section>
 
-        {erro && <p className="erro-venda">{erro}</p>}
+        {erro && <div className="page-error">{erro}</div>}
 
-        <footer className="nova-venda-footer">
-          <button type="submit" disabled={salvando}>
-            {salvando
-              ? 'Salvando...'
-              : statusEntrega === 'pendente'
-                ? '▣ Salvar Venda'
-                : '▣ Salvar e Finalizar'}
+        <div className="sale-submit-wrap">
+          <button type="submit" className="primary-button full-width sale-submit-button" disabled={salvando}>
+            {salvando ? 'Salvando venda...' : statusEntrega === 'pendente' ? 'Salvar venda pendente' : 'Salvar e finalizar venda'}
           </button>
-        </footer>
+        </div>
       </form>
-    </main>
+    </AppShell>
   )
 }

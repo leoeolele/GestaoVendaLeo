@@ -1,0 +1,75 @@
+.movement-button.active {
+  background: #5d4037;
+  color: #fff;
+  border-color: #5d4037;
+}
+
+.movement-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.movement-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+}
+
+.movement-icon.success {
+  background: #e1f5e5;
+  color: #1f7a39;
+}
+
+.movement-icon.danger {
+  background: #ffe3df;
+  color: #a81f1b;
+}
+
+.movement-icon.soft {
+  background: #f1e4dd;
+  color: #6b4335;
+}
+
+.movement-value {
+  font-size: 16px;
+  color: #2d1d17;
+}
+
+.movement-value.success {
+  color: #1f7a39;
+}
+
+.movement-value.danger {
+  color: #ab1c19;
+}
+
+.movement-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.movement-delete-button {
+  border: 1px solid #ecd6cf;
+  border-radius: 12px;
+  background: #fff6f2;
+}
+
+@media (prefers-color-scheme: dark) {
+  .movement-button.active {
+    background: #7a5647;
+    border-color: #7a5647;
+  }
+
+  .movement-value {
+    color: #f5ebe6;
+  }
+
+  .movement-delete-button {
+    background: #2b201b;
+    border-color: #4b382f;
+  }
+}

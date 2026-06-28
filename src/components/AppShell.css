@@ -1,0 +1,219 @@
+.app-shell-page {
+  min-height: 100vh;
+  background: #1b1b20;
+  display: flex;
+  justify-content: center;
+  color: #2d1d17;
+}
+
+.app-shell-frame {
+  width: min(100%, 430px);
+  min-height: 100vh;
+  background: #fbf7f4;
+  position: relative;
+  border-left: 1px solid rgba(93, 64, 55, 0.12);
+  border-right: 1px solid rgba(93, 64, 55, 0.12);
+}
+
+.app-shell-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 16px;
+  background: rgba(251, 247, 244, 0.96);
+  border-bottom: 1px solid #ebddd7;
+  backdrop-filter: blur(8px);
+}
+
+.icon-button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #4b3027;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.app-shell-brand {
+  font-size: 18px;
+  font-weight: 800;
+  text-align: center;
+  color: #2d1d17;
+}
+
+.app-shell-action {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #7b5747, #4a2c22);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+
+.header-privacy-button {
+  border: 1px solid #e3d4cd;
+  border-radius: 999px;
+  background: #fff6f2;
+}
+
+.app-shell-content {
+  padding: 18px 16px 92px;
+}
+
+.app-shell-bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(100%, 430px);
+  height: 68px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 8px 12px 10px;
+  box-sizing: border-box;
+  background: rgba(251, 247, 244, 0.98);
+  border-top: 1px solid #ebddd7;
+  backdrop-filter: blur(10px);
+  z-index: 35;
+}
+
+.bottom-nav-link {
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: #6f5a50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bottom-nav-link.active {
+  background: #f0e0d8;
+  color: #4a2c22;
+}
+
+@media (min-width: 900px) {
+  .app-shell-page {
+    padding: 24px;
+    background:
+      radial-gradient(circle at top left, rgba(141, 103, 87, 0.12), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(212, 174, 150, 0.1), transparent 24%),
+      #1b1b20;
+  }
+
+  .app-shell-frame {
+    width: min(100%, 1180px);
+    min-height: calc(100vh - 48px);
+    border: 1px solid rgba(93, 64, 55, 0.2);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 28px 80px rgba(10, 6, 4, 0.28);
+  }
+
+  .app-shell-topbar {
+    grid-template-columns: 44px 1fr auto;
+    height: 70px;
+    padding: 0 26px;
+  }
+
+  .app-shell-brand {
+    font-size: 20px;
+  }
+
+  .icon-button,
+  .header-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .app-shell-content {
+    padding: 30px 30px 104px;
+  }
+
+  .app-shell-bottom-nav {
+    width: min(calc(100% - 48px), 1180px);
+    height: 78px;
+    padding: 10px 18px 14px;
+    border-radius: 22px 22px 0 0;
+  }
+
+  .bottom-nav-link {
+    font-size: 12px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .app-shell-page {
+    background: #120e0b;
+    color: #f2e5df;
+  }
+
+  .app-shell-frame {
+    background: #1b1410;
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .app-shell-topbar {
+    background: rgba(27, 20, 16, 0.96);
+    border-bottom-color: #3c2c24;
+  }
+
+  .app-shell-brand,
+  .icon-button {
+    color: #f5ebe6;
+  }
+
+  .header-privacy-button {
+    background: #2b201b;
+    border-color: #4b382f;
+  }
+
+  .app-shell-bottom-nav {
+    background: rgba(27, 20, 16, 0.98);
+    border-top-color: #3c2c24;
+  }
+
+  .bottom-nav-link {
+    color: #bea89d;
+  }
+
+  .bottom-nav-link.active {
+    background: #3a2821;
+    color: #fff6f2;
+  }
+}
+
+@media (prefers-color-scheme: dark) and (min-width: 900px) {
+  .app-shell-page {
+    background:
+      radial-gradient(circle at top left, rgba(153, 110, 90, 0.12), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(92, 56, 42, 0.14), transparent 24%),
+      #120e0b;
+  }
+
+  .app-shell-frame {
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.36);
+  }
+}

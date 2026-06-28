@@ -22,7 +22,7 @@ export type {
   VendaAtualizacao,
   VendaStatus,
   FormaPagamento,
-} from './venda'
+} from './Venda'
 
 export type {
   VendaItem,

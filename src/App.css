@@ -2,28 +2,8 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
-  margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-.app-home {
-  min-height: 100vh;
-  padding: 24px;
-  background: #f8f4ef;
-  color: #3a2419;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-.app-home h1 {
-  margin-top: 0;
-}
-
-.app-home button {
-  height: 38px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: 5px;
-  background: #4b3027;
-  color: white;
-  font-weight: 700;
+  background: #171412;
+  color: #f7ebe6;
+  font-size: 16px;
+  font-weight: 800;
 }

@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
+import { Download, LogIn } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import './Login.css'
 
 type LoginProps = {
+  canInstallApp?: boolean
+  onInstallApp?: () => void
   onLoginSuccess: () => void
 }
 
-export function Login({ onLoginSuccess }: LoginProps) {
+export function Login({ canInstallApp = false, onInstallApp, onLoginSuccess }: LoginProps) {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
@@ -40,13 +43,13 @@ export function Login({ onLoginSuccess }: LoginProps) {
       <header className="login-header">
         <strong className="logo">LumberLog</strong>
         <button className="header-icon" type="button" aria-label="Menu">
-          ▣
+          <LogIn size={14} />
         </button>
       </header>
 
       <section className="login-intro">
         <h1>Bem-vindo de volta</h1>
-        <p>Gerencie suas vendas de lenha com praticidade e eficiência.</p>
+        <p>Entre com seu e-mail e senha do Supabase para usar o app no navegador ou no celular.</p>
       </section>
 
       <section className="login-card">
@@ -56,7 +59,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
           </label>
 
           <div className="input-wrapper">
-            <span className="input-icon">✉</span>
+            <span className="input-icon">@</span>
             <input
               id="email"
               type="email"
@@ -72,7 +75,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
           </label>
 
           <div className="input-wrapper">
-            <span className="input-icon">▣</span>
+            <span className="input-icon">#</span>
             <input
               id="senha"
               type={mostrarSenha ? 'text' : 'password'}
@@ -88,21 +91,28 @@ export function Login({ onLoginSuccess }: LoginProps) {
               onClick={() => setMostrarSenha((valorAtual) => !valorAtual)}
               aria-label="Mostrar ou ocultar senha"
             >
-              ◉
+              {mostrarSenha ? 'Ocultar' : 'Ver'}
             </button>
           </div>
 
           {erro && <p className="error-message">{erro}</p>}
 
           <button className="login-button" type="submit" disabled={carregando}>
-            {carregando ? 'Entrando...' : 'Entrar'} <span>➜</span>
+            <LogIn size={16} />
+            <span>{carregando ? 'Entrando...' : 'Entrar'}</span>
           </button>
         </form>
 
+        {canInstallApp && onInstallApp && (
+          <button className="install-button" type="button" onClick={onInstallApp}>
+            <Download size={16} />
+            <span>Instalar app</span>
+          </button>
+        )}
       </section>
 
       <footer className="login-footer">
-        <p>LumberLog Pro © 2026. Ferramentas para o campo.</p>
+        <p>LumberLog Pro © 2026. Para trocar de conta, abra o menu e use "Sair da conta".</p>
         <div className="wood-illustration" aria-hidden="true">
           ● ● ●<br />
           ● ● ● ●<br />

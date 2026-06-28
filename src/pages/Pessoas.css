@@ -1,0 +1,25 @@
+.people-search-field {
+  padding-left: 0;
+  border: 0;
+  background: transparent;
+}
+
+.people-search-field:focus {
+  box-shadow: none;
+}
+
+.people-chip-row {
+  margin-top: 14px;
+}
+
+.person-note {
+  font-size: 12px;
+  color: #7a6156;
+  line-height: 1.45;
+}
+
+@media (prefers-color-scheme: dark) {
+  .person-note {
+    color: #c4ada2;
+  }
+}

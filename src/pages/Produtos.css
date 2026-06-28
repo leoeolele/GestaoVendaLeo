@@ -1,0 +1,44 @@
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #7a6156;
+  margin-bottom: 14px;
+}
+
+.products-search-field {
+  padding-left: 0;
+  border: 0;
+  background: transparent;
+}
+
+.products-search-field:focus {
+  box-shadow: none;
+}
+
+.product-card {
+  display: block;
+}
+
+.product-split strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.product-stock-info {
+  text-align: right;
+}
+
+@media (prefers-color-scheme: dark) {
+  .search-row {
+    color: #c3aca1;
+  }
+
+  .product-split span {
+    color: #c9b4aa;
+  }
+
+  .product-split strong {
+    color: #f5ebe6;
+  }
+}
