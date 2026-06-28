@@ -9,6 +9,7 @@ import { usePrivacy } from '../contexts/usePrivacy'
 import './Menu.css'
 
 type MenuProps = {
+  onEditarVenda: (vendaId: string) => void
   onGoDashboardCompleto: () => void
   onGoPessoas: () => void
   onGoProdutos: () => void
@@ -52,6 +53,7 @@ type EntregaResumoCard = {
 const LOW_STOCK_THRESHOLD = 12
 
 export function Menu({
+  onEditarVenda,
   onGoDashboardCompleto,
   onGoPessoas,
   onGoProdutos,
@@ -117,7 +119,7 @@ export function Menu({
       setCarregando(false)
     }
 
-    carregarResumo()
+    void carregarResumo()
   }, [refreshToken])
 
   const resumo = useMemo(() => {
@@ -163,7 +165,7 @@ export function Menu({
           </div>
         </section>
 
-        <button type="button" className="primary-button full-width dashboard-sale-button" onClick={onNovaVenda}>
+        <button type="button" className="primary-button full-width dashboard-sale-button" onClick={() => onNovaVenda()}>
           <ShoppingCart size={18} />
           <span>Nova Venda</span>
         </button>
@@ -203,7 +205,7 @@ export function Menu({
           {!carregando && resumo.entregasPendentes.length > 0 && (
             <div className="list-stack">
               {resumo.entregasPendentes.map((entrega) => (
-                <DeliveryCard key={entrega.id} entrega={entrega} />
+                <DeliveryCard key={entrega.id} entrega={entrega} onClick={() => onEditarVenda(entrega.id)} />
               ))}
             </div>
           )}
@@ -226,7 +228,12 @@ export function Menu({
           {!carregando && resumo.ultimasEntregas.length > 0 && (
             <div className="list-stack">
               {resumo.ultimasEntregas.map((entrega) => (
-                <DeliveryCard key={entrega.id} entrega={entrega} entregue />
+                <DeliveryCard
+                  key={entrega.id}
+                  entrega={entrega}
+                  entregue
+                  onClick={() => onEditarVenda(entrega.id)}
+                />
               ))}
             </div>
           )}
@@ -304,12 +311,14 @@ function MetricCard({ alert, icon, title, value }: MetricCardProps) {
 function DeliveryCard({
   entrega,
   entregue = false,
+  onClick,
 }: {
   entrega: EntregaResumoCard
   entregue?: boolean
+  onClick: () => void
 }) {
   return (
-    <article className="list-card delivery-card">
+    <button type="button" className="list-card-button delivery-card" onClick={onClick}>
       <div className="list-card-top">
         <div>
           <p className="list-card-title">{entrega.cliente}</p>
@@ -318,6 +327,6 @@ function DeliveryCard({
 
         <span className={entregue ? 'badge success' : 'badge soft'}>{entrega.status}</span>
       </div>
-    </article>
+    </button>
   )
 }

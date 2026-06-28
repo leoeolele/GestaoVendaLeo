@@ -8,6 +8,7 @@ import { usePrivacy } from '../contexts/usePrivacy'
 import './ListaVendas.css'
 
 type ListaVendasProps = {
+  onEditarVenda: (vendaId: string) => void
   onGoMenu: () => void
   onGoPessoas: () => void
   onGoProdutos: () => void
@@ -74,6 +75,7 @@ async function buscarVendas() {
 }
 
 export function ListaVendas({
+  onEditarVenda,
   onGoMenu,
   onGoPessoas,
   onGoProdutos,
@@ -288,7 +290,19 @@ export function ListaVendas({
                   .join(', ')
 
                 return (
-                  <article key={venda.id} className="list-card">
+                  <article
+                    key={venda.id}
+                    className="list-card sale-clickable-card"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onEditarVenda(venda.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        onEditarVenda(venda.id)
+                      }
+                    }}
+                  >
                     <div className="list-card-top">
                       <div>
                         <span className="sale-date">{formatDateTime(venda.data_venda)}</span>
@@ -321,7 +335,10 @@ export function ListaVendas({
                       <button
                         type="button"
                         className="danger-button sale-delete-button"
-                        onClick={() => excluirVenda(venda)}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          void excluirVenda(venda)
+                        }}
                         disabled={excluindoId === venda.id}
                       >
                         <Trash2 size={14} />

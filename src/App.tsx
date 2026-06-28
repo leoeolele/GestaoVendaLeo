@@ -18,7 +18,7 @@ import './styles/ui.css'
 
 type Tela =
   | { name: 'menu' }
-  | { name: 'nova-venda' }
+  | { name: 'nova-venda'; vendaId?: string }
   | { name: 'dashboard-completo' }
   | { name: 'lista-vendas' }
   | { name: 'produtos' }
@@ -124,8 +124,8 @@ function App() {
     setDrawerOpen(false)
   }
 
-  function navegarParaNovaVenda() {
-    setTela({ name: 'nova-venda' })
+  function navegarParaNovaVenda(vendaId?: string) {
+    setTela(vendaId ? { name: 'nova-venda', vendaId } : { name: 'nova-venda' })
     setDrawerOpen(false)
   }
 
@@ -174,6 +174,7 @@ function App() {
             atualizarDados()
             navegarParaVendas()
           }}
+          vendaId={tela.vendaId}
         />
       )
       break
@@ -194,6 +195,7 @@ function App() {
     case 'lista-vendas':
       paginaAtual = (
         <ListaVendas
+          onEditarVenda={(vendaId) => navegarParaNovaVenda(vendaId)}
           onGoMenu={navegarProDashboard}
           onGoPessoas={navegarParaPessoas}
           onGoProdutos={navegarParaProdutos}
@@ -295,6 +297,7 @@ function App() {
     default:
       paginaAtual = (
         <Menu
+          onEditarVenda={(vendaId) => navegarParaNovaVenda(vendaId)}
           onGoDashboardCompleto={navegarParaDashboardCompleto}
           onGoPessoas={navegarParaPessoas}
           onGoProdutos={navegarParaProdutos}

@@ -19,6 +19,7 @@ type NovaVendaProps = {
   onOpenMenu: () => void
   onVendaSalva: () => void
   onRefreshData: () => void
+  vendaId?: string
 }
 
 type DespesaVenda = {
@@ -34,6 +35,43 @@ type VendaItemTela = {
   quantidade: number
   subtotal: number
   unidade: string
+}
+
+type PessoaRelacionada = {
+  id: string
+  nome: string
+}
+
+type ProdutoRelacionado = Produto
+
+type VendaCarregada = {
+  id: string
+  data_venda: string
+  despesa_total: number | null
+  status: string
+  valor_pago: number | null
+  pessoa: PessoaRelacionada | PessoaRelacionada[] | null
+  itens: Array<{
+    quantidade: number
+    preco_unitario: number | null
+    subtotal: number | null
+    produto: ProdutoRelacionado | ProdutoRelacionado[] | null
+  }>
+}
+
+type ItemVendaEstoque = {
+  produto_id: string | null
+  quantidade: number
+  produto:
+    | {
+        estoque_atual: number | null
+        controla_estoque: boolean | null
+      }
+    | Array<{
+        estoque_atual: number | null
+        controla_estoque: boolean | null
+      }>
+    | null
 }
 
 async function buscarPessoas(nome: string) {
@@ -135,6 +173,14 @@ async function resolverPessoaId(clienteNome: string, pessoaSelecionadaId: string
   return pessoaNova.id as string
 }
 
+function extractRelatedRecord<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null
+  }
+
+  return value ?? null
+}
+
 async function registrarSaidasEstoque(vendaId: string, itens: VendaItemTela[]) {
   for (const item of itens) {
     if (!item.controla_estoque) {
@@ -231,6 +277,163 @@ async function criarVenda(params: {
   return vendaId
 }
 
+async function carregarVendaExistente(vendaId: string) {
+  const { data, error } = await supabase
+    .from('vendas')
+    .select(`
+      id,
+      data_venda,
+      despesa_total,
+      status,
+      valor_pago,
+      pessoa:pessoas (
+        id,
+        nome
+      ),
+      itens:vendas_itens (
+        quantidade,
+        preco_unitario,
+        subtotal,
+        produto:produtos (
+          id,
+          nome,
+          descricao,
+          preco,
+          unidade,
+          controla_estoque,
+          estoque_atual,
+          ativo,
+          criado_em
+        )
+      )
+    `)
+    .eq('id', vendaId)
+    .single()
+
+  if (error) {
+    throw error
+  }
+
+  return data as unknown as VendaCarregada
+}
+
+async function restaurarVendaParaEdicao(vendaId: string) {
+  const { data: itensVenda, error: itensError } = await supabase
+    .from('vendas_itens')
+    .select(`
+      produto_id,
+      quantidade,
+      produto:produtos (
+        estoque_atual,
+        controla_estoque
+      )
+    `)
+    .eq('venda_id', vendaId)
+
+  if (itensError) {
+    throw itensError
+  }
+
+  for (const item of (itensVenda ?? []) as unknown as ItemVendaEstoque[]) {
+    const produtoInfo = extractRelatedRecord(item.produto)
+
+    if (!item.produto_id || !produtoInfo?.controla_estoque) {
+      continue
+    }
+
+    const estoqueAtual = Number(produtoInfo.estoque_atual || 0)
+    const estoqueFinal = estoqueAtual + Number(item.quantidade || 0)
+
+    const { error: updateError } = await supabase
+      .from('produtos')
+      .update({ estoque_atual: estoqueFinal })
+      .eq('id', item.produto_id)
+
+    if (updateError) {
+      throw updateError
+    }
+  }
+
+  const { error: movimentosError } = await supabase
+    .from('movimentacoes_estoque')
+    .delete()
+    .eq('venda_id', vendaId)
+
+  if (movimentosError) {
+    throw movimentosError
+  }
+
+  const { error: deleteItensError } = await supabase
+    .from('vendas_itens')
+    .delete()
+    .eq('venda_id', vendaId)
+
+  if (deleteItensError) {
+    throw deleteItensError
+  }
+}
+
+async function atualizarVenda(
+  vendaId: string,
+  params: {
+    clienteNome: string
+    dataVenda: string
+    despesasTotal: number
+    itens: VendaItemTela[]
+    pessoaSelecionadaId: string | null
+    status: VendaStatus
+    valorPago: number
+    valorPendente: number
+    valorTotal: number
+  },
+) {
+  const pessoaId = await resolverPessoaId(params.clienteNome, params.pessoaSelecionadaId)
+
+  await restaurarVendaParaEdicao(vendaId)
+
+  const { error: vendaError } = await supabase
+    .from('vendas')
+    .update({
+      data_venda: params.dataVenda,
+      despesa_total: params.despesasTotal,
+      desconto_total: 0,
+      forma_pagamento: params.valorPago > 0 ? 'pix' : null,
+      observacao: null,
+      pessoa_id: pessoaId,
+      status: params.status,
+      valor_pago: params.valorPago,
+      valor_pendente: params.valorPendente,
+      valor_total: params.valorTotal,
+    })
+    .eq('id', vendaId)
+
+  if (vendaError) {
+    throw vendaError
+  }
+
+  const { error: itensError } = await supabase.from('vendas_itens').insert(
+    params.itens.map((item) => ({
+      preco_unitario: item.preco_unitario,
+      produto_id: item.produto_id,
+      quantidade: item.quantidade,
+      subtotal: item.subtotal,
+      venda_id: vendaId,
+    })),
+  )
+
+  if (itensError) {
+    throw itensError
+  }
+
+  await registrarSaidasEstoque(vendaId, params.itens)
+  return vendaId
+}
+
+function mapearStatusEntrega(status: string): VendaStatus {
+  const normalized = status.trim().toLowerCase()
+  return normalized === 'entregue' || normalized === 'finalizada' ? 'entregue' : 'pendente'
+}
+
 export function NovaVenda({
   onGoMenu,
   onGoPessoas,
@@ -239,6 +442,7 @@ export function NovaVenda({
   onOpenMenu,
   onRefreshData,
   onVendaSalva,
+  vendaId,
 }: NovaVendaProps) {
   const { valuesHidden } = usePrivacy()
   const [clienteNome, setClienteNome] = useState('')
@@ -257,6 +461,99 @@ export function NovaVenda({
   const [valorPago, setValorPago] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+  const [carregandoVenda, setCarregandoVenda] = useState(Boolean(vendaId))
+
+  useEffect(() => {
+    let ativo = true
+
+    async function carregarVenda() {
+      if (!vendaId) {
+        setClienteNome('')
+        setClienteSelecionadoId(null)
+        setClientesSugeridos([])
+        setMostrarClientes(false)
+        setProdutoBusca('')
+        setProdutosSugeridos([])
+        setMostrarProdutos(false)
+        setItens([])
+        setDespesas([])
+        setStatusEntrega('pendente')
+        setDataEntrega(toDatetimeLocalValue())
+        setValorPago('')
+        setErro(null)
+        setCarregandoVenda(false)
+        return
+      }
+
+      setCarregandoVenda(true)
+      setErro(null)
+
+      try {
+        const venda = await carregarVendaExistente(vendaId)
+
+        if (!ativo) {
+          return
+        }
+
+        const pessoa = extractRelatedRecord(venda.pessoa)
+        const itensMapeados = (venda.itens ?? [])
+          .map((item) => {
+            const produto = extractRelatedRecord(item.produto)
+
+            if (!produto) {
+              return null
+            }
+
+            const precoUnitario = Number(item.preco_unitario ?? produto.preco ?? 0)
+            const quantidade = Number(item.quantidade || 0)
+
+            return {
+              controla_estoque: Boolean(produto.controla_estoque),
+              preco_unitario: precoUnitario,
+              produto_id: produto.id,
+              produto_nome: produto.nome,
+              quantidade,
+              subtotal: Number(item.subtotal ?? precoUnitario * quantidade),
+              unidade: produto.unidade || 'un',
+            } satisfies VendaItemTela
+          })
+          .filter((item): item is VendaItemTela => item !== null)
+
+        setClienteNome(pessoa?.nome ?? '')
+        setClienteSelecionadoId(pessoa?.id ?? null)
+        setClientesSugeridos([])
+        setMostrarClientes(false)
+        setProdutoBusca('')
+        setProdutosSugeridos([])
+        setMostrarProdutos(false)
+        setItens(itensMapeados)
+        setDespesas(
+          Number(venda.despesa_total || 0) > 0
+            ? [{ descricao: 'Despesa da venda', valor: Number(venda.despesa_total || 0) }]
+            : [],
+        )
+        setStatusEntrega(mapearStatusEntrega(venda.status))
+        setDataEntrega(toDatetimeLocalValue(venda.data_venda))
+        setValorPago(Number(venda.valor_pago || 0) > 0 ? String(Number(venda.valor_pago || 0)) : '')
+      } catch (error) {
+        if (!ativo) {
+          return
+        }
+
+        setErro(getSupabaseErrorMessage(error, 'Erro ao carregar a venda.'))
+      } finally {
+        if (ativo) {
+          setCarregandoVenda(false)
+        }
+      }
+    }
+
+    void carregarVenda()
+
+    return () => {
+      ativo = false
+    }
+  }, [vendaId])
 
   useEffect(() => {
     const timeout = window.setTimeout(async () => {
@@ -292,19 +589,26 @@ export function NovaVenda({
     return () => window.clearTimeout(timeout)
   }, [mostrarProdutos, produtoBusca])
 
-  const subtotalProdutos = useMemo(
-    () => itens.reduce((total, item) => total + item.subtotal, 0),
-    [itens],
-  )
+  const subtotalProdutos = useMemo(() => itens.reduce((total, item) => total + item.subtotal, 0), [itens])
 
-  const totalDespesas = useMemo(
-    () => despesas.reduce((total, despesa) => total + despesa.valor, 0),
-    [despesas],
-  )
+  const totalDespesas = useMemo(() => despesas.reduce((total, despesa) => total + despesa.valor, 0), [despesas])
 
   const valorPagoNumero = Number(valorPago.replace(',', '.')) || 0
   const valorTotal = subtotalProdutos
   const valorPendente = Math.max(valorTotal - valorPagoNumero, 0)
+  const tituloPagina = vendaId ? 'Editar Venda' : 'Nova Venda'
+  const subtituloPagina = vendaId
+    ? 'Atualize cliente, itens e status da venda para manter o controle sempre em dia.'
+    : 'Selecione produtos existentes e salve o cliente novo se ele ainda nao estiver cadastrado.'
+  const submitLabel = salvando
+    ? 'Salvando venda...'
+    : statusEntrega === 'pendente'
+      ? vendaId
+        ? 'Salvar alteracoes'
+        : 'Salvar venda pendente'
+      : vendaId
+        ? 'Salvar e finalizar venda'
+        : 'Salvar e finalizar venda'
 
   function selecionarCliente(cliente: Pessoa) {
     setClienteNome(cliente.nome)
@@ -408,26 +712,58 @@ export function NovaVenda({
 
     setSalvando(true)
 
+    const payload = {
+      clienteNome,
+      dataVenda: toIsoFromDatetimeLocal(dataEntrega),
+      despesasTotal: totalDespesas,
+      itens,
+      pessoaSelecionadaId: clienteSelecionadoId,
+      status: statusEntrega,
+      valorPago: valorPagoNumero,
+      valorPendente,
+      valorTotal,
+    }
+
     try {
-      await criarVenda({
-        clienteNome,
-        dataVenda: toIsoFromDatetimeLocal(dataEntrega),
-        despesasTotal: totalDespesas,
-        itens,
-        pessoaSelecionadaId: clienteSelecionadoId,
-        status: statusEntrega,
-        valorPago: valorPagoNumero,
-        valorPendente,
-        valorTotal,
-      })
+      if (vendaId) {
+        await atualizarVenda(vendaId, payload)
+      } else {
+        await criarVenda(payload)
+      }
 
       onRefreshData()
       onVendaSalva()
     } catch (error) {
-      setErro(getSupabaseErrorMessage(error, 'Erro ao salvar a venda.'))
+      setErro(getSupabaseErrorMessage(error, vendaId ? 'Erro ao atualizar a venda.' : 'Erro ao salvar a venda.'))
     } finally {
       setSalvando(false)
     }
+  }
+
+  if (carregandoVenda) {
+    return (
+      <AppShell
+        activeNav="vendas"
+        onGoMenu={onGoMenu}
+        onGoPessoas={onGoPessoas}
+        onGoProdutos={onGoProdutos}
+        onGoVendas={onGoVendas}
+        onOpenMenu={onOpenMenu}
+      >
+        <div className="page-stack">
+          <section className="page-hero">
+            <div>
+              <h1 className="page-title">{tituloPagina}</h1>
+              <p className="page-subtitle">{subtituloPagina}</p>
+            </div>
+          </section>
+
+          <section className="section-card">
+            <div className="empty-state">Carregando dados da venda...</div>
+          </section>
+        </div>
+      </AppShell>
+    )
   }
 
   return (
@@ -442,8 +778,8 @@ export function NovaVenda({
       <form className="page-stack" onSubmit={salvarVenda}>
         <section className="page-hero">
           <div>
-            <h1 className="page-title">Nova Venda</h1>
-            <p className="page-subtitle">Selecione produtos existentes e salve o cliente novo se ele ainda não estiver cadastrado.</p>
+            <h1 className="page-title">{tituloPagina}</h1>
+            <p className="page-subtitle">{subtituloPagina}</p>
           </div>
         </section>
 
@@ -610,7 +946,7 @@ export function NovaVenda({
                 className="text-field"
                 type="text"
                 value={despesa.descricao}
-                placeholder="Descrição"
+                placeholder="Descricao"
                 onChange={(event) => alterarDespesa(index, 'descricao', event.target.value)}
               />
               <input
@@ -671,7 +1007,7 @@ export function NovaVenda({
 
         <div className="sale-submit-wrap">
           <button type="submit" className="primary-button full-width sale-submit-button" disabled={salvando}>
-            {salvando ? 'Salvando venda...' : statusEntrega === 'pendente' ? 'Salvar venda pendente' : 'Salvar e finalizar venda'}
+            {submitLabel}
           </button>
         </div>
       </form>
