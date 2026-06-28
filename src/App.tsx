@@ -321,7 +321,7 @@ function App() {
           onGoDashboard={navegarProDashboard}
           onGoDashboardCompleto={navegarParaDashboardCompleto}
           onGoEstoque={navegarParaEstoque}
-          onGoNovaVenda={navegarParaNovaVenda}
+          onGoNovaVenda={() => navegarParaNovaVenda()}
           onGoPessoas={navegarParaPessoas}
           onGoProdutos={navegarParaProdutos}
           onGoVendas={navegarParaVendas}
